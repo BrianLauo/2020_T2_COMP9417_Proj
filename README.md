@@ -7,6 +7,8 @@
   json
   ast
   warnings
+  sklearn
+  lightgbm
 ## 1、使用pandas读取csv，观察数据
 ### 训练集行数：1708345
 ### 训练集列数：13
