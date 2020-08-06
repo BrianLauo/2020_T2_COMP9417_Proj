@@ -29,14 +29,25 @@ train_df = train_df.fillna(0)
 test_df = test_df.fillna(0)
 
 # Encode non-numerics
-non_numerics = train_df.select_dtypes(exclude=np.number).columns.tolist()
-for col in non_numerics:
-    if col in ['fullVisitorId']: continue
-    print(col)
-    lb = preprocessing.LabelEncoder()
-    lb.fit(list(train_df[col].values) + list(test_df[col].values))
-    train_df[col] = lb.transform(list(train_df[col].values))
-    test_df[col] = lb.transform(list(test_df[col].values))
+def encode(df):
+    cols = df.columns.values
+    for col in cols:
+        digit_vals={}
+        def convert_to_int(val):
+            return digit_vals[val]
+        if df[col].dtype != np.int64 and df[col].dtype != np.float64:
+            cont = df[col].values.tolist()
+            uniques = set(cont)
+            x = 0
+            for unique in uniques:
+                if unique not in digit_vals:
+                    digit_vals[unique] = x
+                    x+=1
+            df[col] = list(map(convert_to_int, df[col]))
+    return df
+
+train_df = encode(train_df)
+test_df = encode(test_df)
     
 # Split DF
 train_x = train_df.drop(['fullVisitorId', 'totalTransactionRevenue','index','campaign'], axis = 1)
