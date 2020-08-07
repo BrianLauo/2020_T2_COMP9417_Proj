@@ -6,6 +6,7 @@ from pandas import json_normalize
 from ast import literal_eval
 import warnings
 from sklearn import preprocessing, metrics
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 import lightgbm as lgb
 
@@ -48,13 +49,16 @@ def encode(df):
 
 train_df = encode(train_df)
 test_df = encode(test_df)
-    
+
 # Split DF
-train_x = train_df.drop(['fullVisitorId', 'totalTransactionRevenue','index','campaign'], axis = 1)
-train_y = np.log1p(train_df['totalTransactionRevenue'].values)
-trn_x, val_x, trn_y, val_y = train_test_split(train_x, train_y, test_size = 0.2)
-test_x = test_df.drop(['fullVisitorId', 'totalTransactionRevenue','index','campaign'], axis = 1)
+train_x = train_df.drop(['fullVisitorId', 'transactionRevenue', 'totalTransactionRevenue','date','transactions'], axis = 1)
+train_y = train_df['totalTransactionRevenue'].values
+trn_x, val_x, trn_y, val_y = train_test_split(train_x, train_y, test_size = 0.2, shuffle = False)
+test_x = test_df.drop(['fullVisitorId', 'transactionRevenue', 'totalTransactionRevenue','date','transactions'], axis = 1)
 test_y = np.log1p(test_df['totalTransactionRevenue'].values)
+
+trn_y = np.log1p(trn_y)
+val_y = np.log1p(val_y)
 
 # Transform to lgb dataset
 train_data = lgb.Dataset(trn_x, label = trn_y)
@@ -78,6 +82,10 @@ model = lgb.train(parameters, train_data, valid_sets=test_data, num_boost_round=
 
 # predict
 preds = model.predict(test_x, num_iteration=model.best_iteration)
+
+# Evaluation
+preds = model.predict(test_x, num_iteration=model.best_iteration)
+print('The rmse of prediction is:', mean_squared_error(test_y, preds) ** 0.5)
 
 # Generate submission file
 preds[preds < 0] = 0
