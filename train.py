@@ -5,7 +5,7 @@ import json
 from pandas import json_normalize
 from ast import literal_eval
 import warnings
-from sklearn import preprocessing, metrics
+from sklearn import metrics
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 import lightgbm as lgb
@@ -22,8 +22,9 @@ train_df = read_df(data_path, 'train.csv')
 test_df = read_df(data_path, 'test.csv')
 
 # Drop
-train_df = train_df.drop(['visitId', 'visitStartTime', 'campaignCode'], axis=1)
-test_df = test_df.drop(['visitId', 'visitStartTime'], axis=1)
+to_drop = ['visitId', 'date', 'transactions', 'transactionRevenue']
+train_df = train_df.drop(to_drop + ['campaignCode'], axis=1)
+test_df = test_df.drop(to_drop, axis=1)
 
 # Fill NA
 train_df = train_df.fillna(0)
@@ -36,7 +37,7 @@ def encode(df):
         digit_vals={}
         def convert_to_int(val):
             return digit_vals[val]
-        if df[col].dtype != np.int64 and df[col].dtype != np.float64:
+        if df[col].dtype != np.int64 and df[col].dtype != np.float64 and col not in ['fullVisitorId']:
             cont = df[col].values.tolist()
             uniques = set(cont)
             x = 0
@@ -51,10 +52,10 @@ train_df = encode(train_df)
 test_df = encode(test_df)
 
 # Split DF
-train_x = train_df.drop(['fullVisitorId', 'transactionRevenue', 'totalTransactionRevenue','date','transactions'], axis = 1)
+train_x = train_df.drop(['fullVisitorId', 'totalTransactionRevenue'], axis = 1)
 train_y = train_df['totalTransactionRevenue'].values
 trn_x, val_x, trn_y, val_y = train_test_split(train_x, train_y, test_size = 0.2, shuffle = False)
-test_x = test_df.drop(['fullVisitorId', 'transactionRevenue', 'totalTransactionRevenue','date','transactions'], axis = 1)
+test_x = test_df.drop(['fullVisitorId', 'totalTransactionRevenue'], axis = 1)
 test_y = np.log1p(test_df['totalTransactionRevenue'].values)
 
 trn_y = np.log1p(trn_y)
@@ -62,7 +63,7 @@ val_y = np.log1p(val_y)
 
 # Transform to lgb dataset
 train_data = lgb.Dataset(trn_x, label = trn_y)
-test_data = lgb.Dataset(val_x, label = val_y, reference = train_data)
+test_data = lgb.Dataset(val_x, label = val_y, reference=train_data)
 
 # Model parameters
 parameters = {
@@ -78,7 +79,7 @@ parameters = {
 }
 
 # Train
-model = lgb.train(parameters, train_data, valid_sets=test_data, num_boost_round=300, early_stopping_rounds=100)
+model = lgb.train(parameters, train_data, valid_sets=[train_data, test_data], verbose_eval=100, num_boost_round=300, early_stopping_rounds=100)
 
 # predict
 preds = model.predict(test_x, num_iteration=model.best_iteration)
